@@ -24,12 +24,14 @@ export function ExerciseCard({ ...rest }: Props) {
           h={16}
           rounded="md"
           mr={4}
+          resizeMode="cover"
         />
 
         <VStack flex={1}>
           <Heading fontSize="lg" color="white">
             Remada unilateral
           </Heading>
+
           <Text fontSize="sm" color="gray.200" numberOfLines={2}>
             3 séries x 12 repetições
           </Text>
