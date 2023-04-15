@@ -1,7 +1,19 @@
-import { Center, Heading, Image, ScrollView, Text, VStack } from 'native-base'
+import { useState } from 'react'
+import {
+  Center,
+  Heading,
+  Image,
+  ScrollView,
+  Text,
+  useToast,
+  VStack,
+} from 'native-base'
 
 import { useNavigation } from '@react-navigation/native'
 import { AuthNavigatorRoutesProps } from '@routes/auth.routes'
+
+import { useAuth } from '@hooks/useAuth'
+import { AppError } from '@utils/AppError'
 
 import { Controller, useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -14,10 +26,8 @@ import BackgroundImg from '@assets/background.png'
 import LogoSvg from '@assets/logo.svg'
 
 type FormDataProps = {
-  name: string
   email: string
   password: string
-  password_confirm: string
 }
 
 const signInSchema = yup.object({
@@ -26,7 +36,12 @@ const signInSchema = yup.object({
 })
 
 export function SignIn() {
+  const [isLoading, setIsLoading] = useState(false)
   const navigation = useNavigation<AuthNavigatorRoutesProps>()
+
+  const toast = useToast()
+
+  const { signIn } = useAuth()
 
   const {
     control,
@@ -40,8 +55,25 @@ export function SignIn() {
     navigation.navigate('signUp')
   }
 
-  function handleSignIn(data: FormDataProps) {
-    console.log(data)
+  async function handleSignIn({ email, password }: FormDataProps) {
+    try {
+      setIsLoading(true)
+      await signIn(email, password)
+    } catch (error) {
+      const isAppError = error instanceof AppError
+
+      const title = isAppError
+        ? error.message
+        : 'Não foi possível entrar. Tente novamente mais tarde.'
+
+      toast.show({
+        title,
+        placement: 'top',
+        bgColor: 'red.500',
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -102,7 +134,11 @@ export function SignIn() {
             )}
           />
 
-          <Button title="Acessar" onPress={handleSubmit(handleSignIn)} />
+          <Button
+            title="Acessar"
+            onPress={handleSubmit(handleSignIn)}
+            isLoading={isLoading}
+          />
         </Center>
 
         <Center mt={24}>
