@@ -28,6 +28,8 @@ import { UserPhoto } from '@components/UserPhoto'
 import { Input } from '@components/Input'
 import { Button } from '@components/Button'
 
+import defaultUserPhotoImg from '@assets/userPhotoDefault.png'
+
 const PHOTO_SIZE = 33
 
 type FormDataProps = {
@@ -63,9 +65,6 @@ const profileSchema = yup.object({
 export function Profile() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [photoIsLoading, setPhotoIsLoading] = useState(false)
-  const [userPhoto, setUserPhoto] = useState(
-    'https://github.com/phaelslima.png'
-  )
 
   const { user, updateUserProfile } = useAuth()
 
@@ -108,7 +107,39 @@ export function Profile() {
         })
       }
 
-      setUserPhoto(photoSelected.assets[0].uri)
+      const fileExtension = photoSelected.assets[0].uri.split('.').pop()
+
+      const photoFile = {
+        name: `${user.name}.${fileExtension}`
+          .replaceAll(' ', '-')
+          .toLowerCase(),
+        uri: photoSelected.assets[0].uri,
+        type: `${photoSelected.assets[0].type}/${fileExtension}`,
+      } as any
+
+      const userPhotoUploadForm = new FormData()
+      userPhotoUploadForm.append('avatar', photoFile)
+
+      const avatarUpdatedResponse = await api.patch(
+        '/users/avatar',
+        userPhotoUploadForm,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      )
+
+      const userUpdated = user
+      userUpdated.avatar = avatarUpdatedResponse.data.avatar
+
+      await updateUserProfile(userUpdated)
+
+      toast.show({
+        title: 'Foto atualizada!',
+        placement: 'top',
+        bgColor: 'green.500',
+      })
     } catch (error) {
       console.log(error)
     } finally {
@@ -165,7 +196,11 @@ export function Profile() {
             />
           ) : (
             <UserPhoto
-              source={{ uri: userPhoto }}
+              source={
+                user.avatar
+                  ? { uri: `${api.defaults.baseURL}/avatar/${user.avatar}` }
+                  : defaultUserPhotoImg
+              }
               alt="Imagem do usuário"
               size={PHOTO_SIZE}
             />
