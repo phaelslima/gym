@@ -91,7 +91,7 @@ export function SignUp() {
         bgColor: 'red.500',
       })
     } finally {
-      setIsLoading(true)
+      setIsLoading(false)
     }
   }
 
