@@ -10,6 +10,12 @@ import {
   VStack,
 } from 'native-base'
 
+import { useAuth } from '@hooks/useAuth'
+
+import { AppError } from '@utils/AppError'
+
+import { api } from '@services/api'
+
 import { Controller, useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
@@ -36,25 +42,42 @@ const profileSchema = yup.object({
   name: yup.string().required('Informe o nome'),
   password: yup
     .string()
-    .required('Informe a senha.')
-    .min(6, 'A senha deve ter pelo menos 6 caracteres.'),
+    .min(6, 'A senha deve ter pelo menos 6 caracteres.')
+    .nullable()
+    .transform((value) => (!!value ? value : null)),
   confirm_password: yup
     .string()
-    .required('Confirme a senha.')
-    .oneOf([yup.ref('password')], 'A confirmação da senha não confere'),
+    .nullable()
+    .transform((value) => (!!value ? value : null))
+    .oneOf([yup.ref('password')], 'A confirmação da senha não confere')
+    .when('password', {
+      is: (field: any) => field,
+      then: (schema) =>
+        schema
+          .nullable()
+          .required('Informe a confirmação da senha')
+          .transform((value) => (!!value ? value : null)),
+    }),
 })
 
 export function Profile() {
+  const [isUpdating, setIsUpdating] = useState(false)
   const [photoIsLoading, setPhotoIsLoading] = useState(false)
   const [userPhoto, setUserPhoto] = useState(
     'https://github.com/phaelslima.png'
   )
+
+  const { user, updateUserProfile } = useAuth()
 
   const {
     control,
     handleSubmit,
     formState: { errors },
   } = useForm<FormDataProps>({
+    defaultValues: {
+      name: user.name,
+      email: user.email,
+    },
     resolver: yupResolver(profileSchema),
   })
 
@@ -93,8 +116,37 @@ export function Profile() {
     }
   }
 
-  function handleProfileUpdate(data: FormDataProps) {
-    console.log(data)
+  async function handleProfileUpdate(data: FormDataProps) {
+    try {
+      setIsUpdating(true)
+
+      const userUpdated = user
+      userUpdated.name = data.name
+
+      await api.put('/users', data)
+
+      await updateUserProfile(userUpdated)
+
+      toast.show({
+        title: 'Perfil atualizando com sucesso!',
+        placement: 'top',
+        bgColor: 'green.700',
+      })
+    } catch (error) {
+      const isAppError = error instanceof AppError
+
+      const title = isAppError
+        ? error.message
+        : 'Não foi possível atualizar os dados. Tente novamente mais tarde.'
+
+      toast.show({
+        title,
+        placement: 'top',
+        bgColor: 'red.500',
+      })
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   return (
@@ -134,7 +186,7 @@ export function Profile() {
           <Controller
             control={control}
             name="name"
-            render={({ field: { value, onChange } }) => (
+            render={({ field: { onChange, value } }) => (
               <Input
                 bg="gray.600"
                 placeholder="Nome"
@@ -148,7 +200,7 @@ export function Profile() {
           <Controller
             control={control}
             name="email"
-            render={({ field: { value, onChange } }) => (
+            render={({ field: { onChange, value } }) => (
               <Input
                 bg="gray.600"
                 placeholder="E-mail"
@@ -173,12 +225,13 @@ export function Profile() {
           <Controller
             control={control}
             name="old_password"
-            render={({ field: { onChange } }) => (
+            render={({ field: { onChange, value } }) => (
               <Input
                 bg="gray.600"
                 placeholder="Senha antiga"
                 secureTextEntry
                 onChangeText={onChange}
+                value={value}
               />
             )}
           />
@@ -219,6 +272,7 @@ export function Profile() {
             title="Atualizar"
             mt={4}
             onPress={handleSubmit(handleProfileUpdate)}
+            isLoading={isUpdating}
           />
         </Center>
       </ScrollView>
